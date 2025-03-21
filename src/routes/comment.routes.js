@@ -8,9 +8,9 @@ const router = Router()
 router.use(verifyJWT)
 router.use(upload.none()) //To avoid file input in the comments
 
-router.route("/getComments").get(getVideoComments)
-router.route("/addComment").post(addComment)
-router.route("/updateComment").patch(updateComment)
-router.route("/deleteComment").delete(deleteComment)
+router.route("/getVideoComments/:videoId").get(getVideoComments)
+router.route("/addComment/:video").post(addComment)
+router.route("/updateComment/:commentId").patch(updateComment)
+router.route("/deleteComment/:commentId").delete(deleteComment)
 
 export default router
