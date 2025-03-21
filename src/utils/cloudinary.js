@@ -31,14 +31,21 @@ const uploadOnCloudinary = async (localFilePath) => {
     }
 }
 
-const deleteOnCloudinary = async (public_id) => {
+const deleteOnCloudinary = async (url = "") => {
     try {
-        await cloudinary.uploader.destroy(public_id);
-        console.log("File deleted on cloudinary.") 
+        if(!url){
+            console.log("deleteFromCloudinary: No image url ");
+
+            return null
+        }
+        const public_id = extractPublicId(url)
+        const response = await cloudinary.uploader.destroy(public_id)
+
+        console.log(response);
+        return response
     } catch (error) {
-        console.log("Error on Cloudinary ", error)
+        console.error("deleteFromCloudinary: ",error.message);
         return null
     }
 }
-
 export {uploadOnCloudinary, deleteOnCloudinary}
