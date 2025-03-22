@@ -83,13 +83,12 @@ const addComment = asyncHandler(async (req, res) => {
     const createComment = await Comment.create(
         {
             video,
-            owner: new mongoose.Types.ObjectId(user._id),
+            owner: user._id,
             comment
         }
     )
 
     return res.status(200).json(new ApiResponse(200, "Comment added successfully", createComment))
-
 
 })
 

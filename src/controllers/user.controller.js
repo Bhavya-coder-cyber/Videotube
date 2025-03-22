@@ -290,7 +290,10 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar file is missing")
     }
-    await deleteOnCloudinary(avatar)
+
+    const user = await User.findById(req.user?._id).select("-password -refreshToken")
+    const publicId = user.avatar
+
 
     const avatar = await uploadOnCloudinary(avatarLocalPath)
 
@@ -298,21 +301,17 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Error while uploading on avatar")
 
     }
+    user.avatar = avatar.url
+    const update = await User.save({ validateBeforeSave: false })
 
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: {
-                avatar: avatar.url
-            }
-        },
-        { new: true }
-    ).select("-password")
+    if (publicId) {
+        await deleteOnCloudinary(publicId)
+    }
 
     return res
         .status(200)
         .json(
-            new ApiResponse(200, user, "Avatar image updated successfully")
+            new ApiResponse(200, update, "Avatar image updated successfully")
         )
 })
 
@@ -323,34 +322,29 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Cover image file is missing")
     }
 
-    const oldPublicId = req.user?.coverImage?.public_id
-
-    if (oldPublicId) {
-        await deleteOnCloudinary(oldPublicId)
-    }
-
+    const user = await User.findById(req.user?._id).select("-password -refreshToken")
+    const publicId = user.coverImage
 
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
     if (!coverImage.url) {
         throw new ApiError(400, "Error while uploading on avatar")
-
     }
 
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: {
-                coverImage: coverImage.url
-            }
-        },
-        { new: true }
-    ).select("-password")
+    user.coverImage = coverImage.url
+    const update = await User.save({ validateBeforeSave: false })
 
+    if (!coverImage.url) {
+        throw new ApiError(400, "Error while uploading on avatar")
+    }
+    
+    if (publicId) {
+        await deleteOnCloudinary(oldPublicId)
+    }
     return res
         .status(200)
         .json(
-            new ApiResponse(200, user, "Cover image updated successfully")
+            new ApiResponse(200, update, "Cover image updated successfully")
         )
 })
 
