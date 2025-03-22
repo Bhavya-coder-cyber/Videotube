@@ -158,17 +158,108 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: update video details like title, description, thumbnail
+    const { title, description } = req.body
+    const thumbnailLocalPath = req.files?.thumbnail[0]?.path
 
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(400, "Video not found")
+    }
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "User is not owner of the video. Hence you are not allowed to update the video")
+    }
+
+    if (!title || title.trim() === "") {
+        title = video.title
+    }
+    if (!description || description.trim() === "") {
+        description = video.description
+    }
+    video.title = title
+    video.description = description
+    let thumbnail;
+    if (thumbnailLocalPath) {
+        thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
+        if (!thumbnail) {
+            throw new ApiError(500, "Error uploading thumbnail")
+        }
+    }
+    try {
+        const updatedVideo = await Video.findByIdAndUpdate(videoId, {
+            $set: {
+                title,
+                description,
+                thumbnail: thumbnail?.url
+            }
+        },{new: true})
+        if (!updatedVideo) {
+            await deleteOnCloudinary(thumbnail.public_id)
+            throw new ApiError(500, "Error updating video")
+        }
+
+        return res.status(200).json(new ApiResponse(200, "Video updated successfully", updatedVideo))
+    } catch (error) {
+        if (thumbnail) {
+            await deleteOnCloudinary(thumbnail.public_id)
+            throw new ApiError(500, "Error updating video in videotube")
+        }
+    }
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: delete video
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Video ID is required")
+    }
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(400, "Video not found")
+    }
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "User is not owner of the video. Hence you are not allowed to delete the video")
+    }
+
+    try {
+        if (video.videoFile) {
+            await deleteOnCloudinary(video.videoFile)
+        }
+        if (video.thumbnail) {
+            await deleteOnCloudinary(video.thumbnail)
+        }
+    } catch (error) {
+        throw new ApiError(500, "Error deleting video from cloudinary")
+    }
+
+    await Comment.deleteMany({ video: video?._id })
+    await Like.deleteMany({ video: video?._id })
+
+    await Video.findByIdAndDelete(videoId)
+
+    return res.status(200).json(new ApiResponse(200, "Video deleted successfully", {}))
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(400, "Video not found")
+    }
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "User is not owner of the video. Hence you are not allowed to update the video")
+    }
+
+    video.isPublished = !video?.isPublished
+    await video.save()
+
+    return res.status(200).json(new ApiResponse(200, "Video published status updated successfully", video))
 })
 
 export {
